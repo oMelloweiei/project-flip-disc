@@ -1,0 +1,3 @@
+/Users/azballkung/Desktop/Training/Cplusplus/build/CMakeFiles/https_server.dir
+/Users/azballkung/Desktop/Training/Cplusplus/build/CMakeFiles/edit_cache.dir
+/Users/azballkung/Desktop/Training/Cplusplus/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="./css/style.css" rel="stylesheet" />
+
+    <title>Flip Disc</title>
+  </head>
+  <body
+    class="relative bg-fixed bg-black"
+    style="background-image: url('./img/bg.png')"
+  >
+    <!-- Navbar -->
+    <header class="sticky top-0 z-50">
+      <nav
+        class="flex justify-between items-center w-[100%] bg-black mx-auto px-12 py-3"
+      >
+        <div>
+          <a class="hover:text-gray-400 text-white text-xl font-sans" href="#">
+            <img class="object-cover w-30 h-12" src="./img/Logo_White.webp" />
+          </a>
+        </div>
+        <div>
+          <ul class="flex gap-9">
+            <li>
+              <a
+                class="hover:text-gray-400 text-white text-xl font-serif"
+                href="#"
+                >Control</a
+              >
+            </li>
+            <li>
+              <a
+                class="hover:text-gray-400 text-white text-xl font-serif"
+                href="#"
+                >About</a
+              >
+            </li>
+            <li>
+              <a
+                class="hover:text-gray-400 text-white text-xl font-serif"
+                href="#"
+                >Contact</a
+              >
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <div class="relative w-full h-screen">
+      <div
+        class="flex-col box-content w-[93%] h-[80%] bg-white shadow-md rounded-md mx-auto mt-10"
+      >
+        <div class="px-5 py-3 flex justify-start items-end gap-8">
+          <p class="text-2xl">Preview Mode</p>
+          <p class="text-xl">Mode name</p>
+        </div>
+        <div class="box-context bg-green-400 w-43 h-33"></div>
+        <div class="">
+          <p class="text-center text-4xl m-2">Description</p>
+          <p class="text-center mx-10 my-2">
+            Lorem Ipsum is simply dummy text of the printing and typesetting
+            industry. Lorem Ipsum has been the industry's standard dummy text
+            ever since the 1500s, when an unknown printer took a galley of type
+            and scrambled it to make a type specimen book. It has survived not
+            only five centuries, but also the leap into electronic typesetting,
+            remaining essentially unchanged. It was popularised in the 1960s
+            with the release of Letraset sheets containing Lorem Ipsum passages,
+            and more recently with desktop publishing software like Aldus
+            PageMaker including versions of Lorem Ipsum.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
