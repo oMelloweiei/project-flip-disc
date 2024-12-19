@@ -49,6 +49,10 @@
     "variant": "cpp",
     "algorithm": "cpp",
     "fstream": "cpp",
-    "iomanip": "cpp"
+    "iomanip": "cpp",
+    "__tree": "cpp",
+    "deque": "cpp",
+    "map": "cpp",
+    "queue": "cpp"
   }
 }

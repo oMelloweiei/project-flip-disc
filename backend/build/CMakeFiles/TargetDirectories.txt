@@ -1,0 +1,3 @@
+/Users/azballkung/Desktop/Training/flipdisc_project/backend/build/CMakeFiles/https_server.dir
+/Users/azballkung/Desktop/Training/flipdisc_project/backend/build/CMakeFiles/edit_cache.dir
+/Users/azballkung/Desktop/Training/flipdisc_project/backend/build/CMakeFiles/rebuild_cache.dir

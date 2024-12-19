@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: url("./assets/images/bg.png") no-repeat;
+  background-color: #000;
+  background-size: cover;
+  min-height: 100vh;
+}
