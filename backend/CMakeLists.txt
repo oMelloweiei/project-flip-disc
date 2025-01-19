@@ -1,41 +1,49 @@
 # Specify the minimum version of CMake
 cmake_minimum_required(VERSION 3.10)
 
-# Set the project name
-project(https_server)
+# Set the project name and language
+project(https_server CXX)
 
 # Set the C++ standard version to C++11
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Find the OpenSSL package
+# Find required packages
 find_package(OpenSSL REQUIRED)
-
-# Find the OpenCV package
 find_package(OpenCV REQUIRED)
 
-# Specify the include directories for OpenSSL and OpenCV
-include_directories(
-    /opt/homebrew/Cellar/openssl@3/3.4.0/include
-    /opt/homebrew/Cellar/opencv/4.10.0_15/include/opencv4
-)
-
-# Specify the library directories for OpenSSL and OpenCV
-link_directories(
-    /opt/homebrew/Cellar/openssl@3/3.4.0/lib
-    /opt/homebrew/Cellar/opencv/4.10.0_15/lib
-)
+# Print status messages for debugging
+message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+message(STATUS "OpenCV include dir: ${OpenCV_INCLUDE_DIRS}")
 
 # Add the executable target
-add_executable(https_server server.cpp)
+add_executable(https_server main.cpp)
 
-# Link OpenSSL and OpenCV libraries to your project
-target_link_libraries(https_server
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    ${OpenCV_LIBS}  # Link OpenCV libraries
+# Set include directories using modern CMake
+target_include_directories(https_server
+    PRIVATE
+        ${OPENSSL_INCLUDE_DIR}
+        ${OpenCV_INCLUDE_DIRS}
 )
 
-# Optionally, you can specify additional flags or settings if needed
-# Example for linking with pthread (in case it's required):
-# target_link_libraries(https_server pthread)
+# Link libraries using modern CMake
+target_link_libraries(https_server
+    PRIVATE
+        OpenSSL::SSL
+        OpenSSL::Crypto
+        ${OpenCV_LIBS}
+)
+
+# Optional: Add compile options
+target_compile_options(https_server
+    PRIVATE
+        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+        $<$<CXX_COMPILER_ID:Clang>:-Wall -Wextra>
+)
+
+# Optional: Enable threading support
+find_package(Threads)
+if(Threads_FOUND)
+    target_link_libraries(https_server PRIVATE Threads::Threads)
+endif()

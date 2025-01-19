@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/azballkung/Desktop/Training/flipdisc_project/backend/server.cpp" "CMakeFiles/https_server.dir/server.cpp.o" "gcc" "CMakeFiles/https_server.dir/server.cpp.o.d"
+  "/Users/azballkung/Desktop/Training/flipdisc_project/backend/main.cpp" "CMakeFiles/https_server.dir/main.cpp.o" "gcc" "CMakeFiles/https_server.dir/main.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

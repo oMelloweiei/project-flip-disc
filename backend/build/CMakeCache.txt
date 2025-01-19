@@ -323,6 +323,8 @@ CMAKE_GENERATOR_INSTANCE:INTERNAL=
 CMAKE_GENERATOR_PLATFORM:INTERNAL=
 //Name of generator toolset.
 CMAKE_GENERATOR_TOOLSET:INTERNAL=
+//Test CMAKE_HAVE_LIBC_PTHREAD
+CMAKE_HAVE_LIBC_PTHREAD:INTERNAL=1
 //Source directory with the top level CMakeLists.txt file for this
 // project
 CMAKE_HOME_DIRECTORY:INTERNAL=/Users/azballkung/Desktop/Training/flipdisc_project/backend
@@ -394,6 +396,8 @@ CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 FIND_PACKAGE_MESSAGE_DETAILS_OpenCV:INTERNAL=[/opt/homebrew/Cellar/opencv/4.10.0_15][v4.10.0()]
 //Details about finding OpenSSL
 FIND_PACKAGE_MESSAGE_DETAILS_OpenSSL:INTERNAL=[/opt/homebrew/Cellar/openssl@3/3.4.0/lib/libcrypto.dylib][/opt/homebrew/Cellar/openssl@3/3.4.0/include][c ][v3.4.0()]
+//Details about finding Threads
+FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //ADVANCED property for variable: OPENSSL_CRYPTO_LIBRARY
 OPENSSL_CRYPTO_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: OPENSSL_INCLUDE_DIR

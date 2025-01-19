@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/https_server.dir/server.cpp.o"
-  "CMakeFiles/https_server.dir/server.cpp.o.d"
+  "CMakeFiles/https_server.dir/main.cpp.o"
+  "CMakeFiles/https_server.dir/main.cpp.o.d"
   "https_server"
   "https_server.pdb"
 )

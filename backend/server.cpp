@@ -10,6 +10,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <string.h>
+#include <string>
 #include <unistd.h>
 #include <thread>
 
@@ -17,9 +18,6 @@
 
 const char *cert_file = "/Users/azballkung/Desktop/Training/flipdisc_project/backend/cert.pem";
 const char *key_file = "/Users/azballkung/Desktop/Training/flipdisc_project/backend/key.pem";
-
-#include <opencv2/opencv.hpp>
-#include <string>
 
 void stream_video(SSL *ssl)
 {

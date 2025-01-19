@@ -6,7 +6,7 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -isystem /opt/homebrew/Cellar/openssl@3/3.4.0/include -isystem /opt/homebrew/Cellar/opencv/4.10.0_15/include/opencv4
 
-CXX_FLAGSarm64 = -std=gnu++11 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.sdk
+CXX_FLAGSarm64 = -std=c++11 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.sdk
 
-CXX_FLAGS = -std=gnu++11 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.sdk
+CXX_FLAGS = -std=c++11 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.4.sdk
 

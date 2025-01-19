@@ -69,28 +69,28 @@ include CMakeFiles/https_server.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/https_server.dir/flags.make
 
-CMakeFiles/https_server.dir/server.cpp.o: CMakeFiles/https_server.dir/flags.make
-CMakeFiles/https_server.dir/server.cpp.o: /Users/azballkung/Desktop/Training/flipdisc_project/backend/server.cpp
-CMakeFiles/https_server.dir/server.cpp.o: CMakeFiles/https_server.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/azballkung/Desktop/Training/flipdisc_project/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/https_server.dir/server.cpp.o"
-	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/https_server.dir/server.cpp.o -MF CMakeFiles/https_server.dir/server.cpp.o.d -o CMakeFiles/https_server.dir/server.cpp.o -c /Users/azballkung/Desktop/Training/flipdisc_project/backend/server.cpp
+CMakeFiles/https_server.dir/main.cpp.o: CMakeFiles/https_server.dir/flags.make
+CMakeFiles/https_server.dir/main.cpp.o: /Users/azballkung/Desktop/Training/flipdisc_project/backend/main.cpp
+CMakeFiles/https_server.dir/main.cpp.o: CMakeFiles/https_server.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/azballkung/Desktop/Training/flipdisc_project/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/https_server.dir/main.cpp.o"
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/https_server.dir/main.cpp.o -MF CMakeFiles/https_server.dir/main.cpp.o.d -o CMakeFiles/https_server.dir/main.cpp.o -c /Users/azballkung/Desktop/Training/flipdisc_project/backend/main.cpp
 
-CMakeFiles/https_server.dir/server.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/https_server.dir/server.cpp.i"
-	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/azballkung/Desktop/Training/flipdisc_project/backend/server.cpp > CMakeFiles/https_server.dir/server.cpp.i
+CMakeFiles/https_server.dir/main.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/https_server.dir/main.cpp.i"
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/azballkung/Desktop/Training/flipdisc_project/backend/main.cpp > CMakeFiles/https_server.dir/main.cpp.i
 
-CMakeFiles/https_server.dir/server.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/https_server.dir/server.cpp.s"
-	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/azballkung/Desktop/Training/flipdisc_project/backend/server.cpp -o CMakeFiles/https_server.dir/server.cpp.s
+CMakeFiles/https_server.dir/main.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/https_server.dir/main.cpp.s"
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/azballkung/Desktop/Training/flipdisc_project/backend/main.cpp -o CMakeFiles/https_server.dir/main.cpp.s
 
 # Object files for target https_server
 https_server_OBJECTS = \
-"CMakeFiles/https_server.dir/server.cpp.o"
+"CMakeFiles/https_server.dir/main.cpp.o"
 
 # External object files for target https_server
 https_server_EXTERNAL_OBJECTS =
 
-https_server: CMakeFiles/https_server.dir/server.cpp.o
+https_server: CMakeFiles/https_server.dir/main.cpp.o
 https_server: CMakeFiles/https_server.dir/build.make
 https_server: /opt/homebrew/Cellar/openssl@3/3.4.0/lib/libssl.dylib
 https_server: /opt/homebrew/Cellar/openssl@3/3.4.0/lib/libcrypto.dylib
