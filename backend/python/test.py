@@ -11,7 +11,7 @@ im = None
 
 #for send to esp32
 ESP32_IP = "192.168.1.100" 
-ESP32_PORT = 80
+ESP32_PORT = 81
 
 # เปิดกล้อง
 x = 36
