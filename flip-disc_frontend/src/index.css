@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+
+.flip-dot {
+  perspective: 1000px;
+}
+
+.flip-dot-inner {
+  transition: transform 0.3s;
+  transform-style: preserve-3d;
+}
+
+.flip-dot-front,
+.flip-dot-back {
+  position: absolute;
+  backface-visibility: hidden;
+}
+
+.flip-dot-back {
+  transform: rotateY('180');
+}
+
 body {
   background: url("./assets/images/bg.png") no-repeat;
   background-color: #000;

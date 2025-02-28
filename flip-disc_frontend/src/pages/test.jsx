@@ -1,16 +1,14 @@
 import React from "react";
+import Flipdot from "../components/Flipdot";
+
+const bitMatrix = Array.from({ length: 24 }, () =>
+  Array.from({ length: 36 }, () => Math.round(Math.random())) // Random 0 or 1
+);
 
 function Test() {
   return (
     <div>
-      <h1 className="text-white">Test Page</h1>
-      <div className="video-container">
-        <img
-          src="https://localhost:8080/webcam"
-          alt="Video Stream"
-          className="streaming-video"
-        />
-      </div>
+      <Flipdot />
     </div>
   );
 }
