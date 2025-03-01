@@ -1,7 +1,7 @@
 import asyncio
 import websockets
 import json
-import random 
+import random
 
 # WebSocket server that sends a 36x24 bitmatrix
 # Updated function without the 'path' parameter
