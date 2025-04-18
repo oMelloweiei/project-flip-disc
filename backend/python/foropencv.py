@@ -9,6 +9,15 @@ import time
 import os
 import gdown
 from u2net import U2NET
+import requests
+from flask import Flask, jsonify
+from flask_socketio import SocketIO
+from flask_cors import CORS
+
+# Create Flask app with SocketIO
+app = Flask(__name__)
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Device and model configuration
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -23,13 +32,12 @@ if not os.path.exists(os.path.join(os.getcwd(), U2NET_MODEL_HUMAN_PATH)):
     print("Downloading U2NET model...")
     _ = gdown.download(U2NET_MODEL_HUMAN_URL, U2NET_MODEL_HUMAN_PATH)
 
-#for recieve img from esp32cam
-url='http://192.168.10.162/cam-hi.jpg'
-im = None
+# ESP32 camera URL for image capture
+ESP32_CAM_URL = 'http://192.168.10.162/cam-hi.jpg'
 
-#for send to esp32
-ESP32_IP = "192.168.1.100" 
-ESP32_PORT = 81
+# ESP32 flipdisc controller address
+ESP32_FLIPDISC_IP = "192.168.1.100" 
+ESP32_FLIPDISC_PORT = 81
 
 # Initialize and load model
 u2net = U2NET(in_ch=3, out_ch=1)
@@ -134,26 +142,100 @@ def export_flipdisc_data(flipdisc_mask):
     
     return bytes_data
 
-def main():
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
-    if not cap.isOpened():
-        print("Error: Could not open camera.")
-        return
-    
+def convert_mask_to_matrix(flipdisc_mask_binary):
+    """Convert binary mask to 2D array of 0s and 1s for React"""
+    matrix = []
+    for y in range(flipdisc_mask_binary.shape[0]):
+        row = []
+        for x in range(flipdisc_mask_binary.shape[1]):
+            # Convert 255 to 1, keep 0 as 0
+            row.append(1 if flipdisc_mask_binary[y, x] > 0 else 0)
+        matrix.append(row)
+    return matrix
+
+def send_to_esp32(data):
+    """Send data to ESP32 flipdisc controller"""
+    try:
+        url = f"http://{ESP32_FLIPDISC_IP}:{ESP32_FLIPDISC_PORT}/update"
+        response = requests.post(url, data=data, timeout=1)
+        if response.status_code == 200:
+            print("Data sent to ESP32 successfully")
+        else:
+            print(f"Failed to send data: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending data to ESP32: {e}")
+
+def capture_from_esp32cam():
+    """Capture image from ESP32-CAM"""
+    try:
+        response = requests.get(ESP32_CAM_URL, timeout=5)
+        if response.status_code == 200:
+            # Convert to numpy array and decode image
+            nparr = np.frombuffer(response.content, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            return True, img
+        else:
+            print(f"Failed to get image from ESP32-CAM: {response.status_code}")
+            return False, None
+    except Exception as e:
+        print(f"Error capturing from ESP32-CAM: {e}")
+        return False, None
+
+# SocketIO connection events
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+def process_frames():
+    """Main processing loop that will emit data to connected clients"""
     # Initialize processor with U2NET model
     processor = U2NETProcessor(model=u2net, device=DEVICE).start()
     
     prev_frame_time = 0
     
+    # Initialize camera (webcam as fallback if ESP32-CAM fails)
+    use_webcam = False
+    cap = None
+    
+    try:
+        # First try ESP32-CAM
+        ret, frame = capture_from_esp32cam()
+        if not ret:
+            # Fallback to webcam
+            print("Falling back to webcam")
+            cap = cv2.VideoCapture(0)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            use_webcam = True
+            
+            if not cap.isOpened():
+                print("Error: Could not open camera.")
+                return
+    except Exception as e:
+        print(f"Error: {e}")
+        return
+    
     while True:
-        ret, frame = cap.read()
+        # Get frame from either ESP32-CAM or webcam
+        if use_webcam:
+            ret, frame = cap.read()
+        else:
+            ret, frame = capture_from_esp32cam()
+            
         if not ret:
             print("Error: Failed to capture frame.")
-            break
+            # If ESP32-CAM fails, try to switch to webcam
+            if not use_webcam:
+                print("Switching to webcam")
+                cap = cv2.VideoCapture(0)
+                use_webcam = True
+                continue
+            else:
+                break
             
         # Add frame to processing queue
         processor.enqueue(frame)
@@ -162,7 +244,7 @@ def main():
         result_available, result = processor.read()
         
         if result_available:
-            foreground, full_mask, flipdisc_mask, flipdisc_display = result
+            foreground, full_mask, flipdisc_mask_binary, flipdisc_display = result
             
             # Calculate FPS
             new_frame_time = time.time()
@@ -173,34 +255,43 @@ def main():
             cv2.putText(foreground, f"FPS: {int(fps)}", (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
-            # Display results
+            # Display results (if needed)
             cv2.imshow('Original', frame)
             cv2.imshow('Mask', full_mask)
             cv2.imshow('Foreground', foreground)
             cv2.imshow('Flip Disc (36x24)', flipdisc_display)
             
-            # Optional: Export data for flip disc display
-            flipdisc_data = export_flipdisc_data(flipdisc_mask)
-            # Here you would send flipdisc_data to your display hardware
+            # Export data for flip disc display
+            flipdisc_data = export_flipdisc_data(flipdisc_mask_binary)
             
-            # Uncomment to print binary representation of flip disc display
-            # Useful for debugging
-            """
-            print("\033[H\033[J")  # Clear console (works on UNIX terminals)
-            for y in range(24):
-                line = ""
-                for x in range(36):
-                    line += "●" if flipdisc_mask[y, x] > 0 else "○"
-                print(line)
-            """
+            # Send to ESP32 flip disc controller
+            send_to_esp32(flipdisc_data)
+            
+            # Convert to matrix format for React
+            matrix = convert_mask_to_matrix(flipdisc_mask_binary)
+            
+            # Emit data to connected clients via SocketIO
+            data = {
+                "matrix": matrix,
+                "timestamp": time.time(),
+                "fps": int(fps)
+            }
+            socketio.emit('flipdisc_update', data)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     
     # Cleanup
     processor.stop()
-    cap.release()
+    if use_webcam and cap is not None:
+        cap.release()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    # Start the processing thread
+    processing_thread = Thread(target=process_frames)
+    processing_thread.daemon = True
+    processing_thread.start()
+    
+    # Start the SocketIO server
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
