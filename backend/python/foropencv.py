@@ -41,7 +41,8 @@ ESP32_FLIPDISC_PORT = 81
 
 # Initialize and load model
 u2net = U2NET(in_ch=3, out_ch=1)
-u2net.load_state_dict(torch.load(U2NET_MODEL_HUMAN_PATH, map_location=DEVICE))
+#use weight only = false for make it work
+u2net.load_state_dict(torch.load(U2NET_MODEL_HUMAN_PATH, map_location=DEVICE, weights_only=False))
 u2net.to(DEVICE)
 u2net.eval()
 
@@ -49,7 +50,7 @@ u2net.eval()
 MEAN = torch.tensor([0.485, 0.456, 0.406])
 STD = torch.tensor([0.229, 0.224, 0.225])
 # Processing resolution and flip disc resolution
-resize_shape = (320, 240)  # Higher resolution for better detection
+resize_shape = (180, 120)  # Higher resolution for better detection
 flipdisc_resolution = (36, 24)  # Final output for flip disc display
 
 transforms = T.Compose([
@@ -256,16 +257,16 @@ def process_frames():
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
             # Display results (if needed)
-            cv2.imshow('Original', frame)
-            cv2.imshow('Mask', full_mask)
-            cv2.imshow('Foreground', foreground)
+            # cv2.imshow('Original', frame)
+            # cv2.imshow('Mask', full_mask)
+            # cv2.imshow('Foreground', foreground)
             cv2.imshow('Flip Disc (36x24)', flipdisc_display)
             
             # Export data for flip disc display
             flipdisc_data = export_flipdisc_data(flipdisc_mask_binary)
             
             # Send to ESP32 flip disc controller
-            send_to_esp32(flipdisc_data)
+            # send_to_esp32(flipdisc_data)
             
             # Convert to matrix format for React
             matrix = convert_mask_to_matrix(flipdisc_mask_binary)
@@ -276,6 +277,7 @@ def process_frames():
                 "timestamp": time.time(),
                 "fps": int(fps)
             }
+            print(data)
             socketio.emit('flipdisc_update', data)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):

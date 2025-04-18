@@ -1,85 +1,35 @@
-import React, { useEffect, useState } from "react";
-import Flipdot from "../components/Flipdot";
-import { io } from "socket.io-client";
+// src/pages/FlipdotDisplay.js
+import React from "react";
+import Flipdot from "../components/Flipdot"; // Adjust the path based on your file structure
 
-function Test() {
-  const [bitMatrix, setBitMatrix] = useState(
-    Array.from({ length: 24 }, () => Array.from({ length: 36 }, () => 0))
-  );
-  const [isConnected, setIsConnected] = useState(false);
-  const [fps, setFps] = useState(0);
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const [socket, setSocket] = useState(null);
-
-  // Initialize Socket.IO connection
-  useEffect(() => {
-    // Connect to the Flask-SocketIO server
-    const newSocket = io("http://localhost:5000");
-    
-    // Handle connection events
-    newSocket.on("connect", () => {
-      console.log("Connected to server");
-      setIsConnected(true);
-    });
-    
-    newSocket.on("disconnect", () => {
-      console.log("Disconnected from server");
-      setIsConnected(false);
-    });
-    
-    // Handle incoming flipdisc data
-    newSocket.on("flipdisc_update", (data) => {
-      setBitMatrix(data.matrix);
-      setFps(data.fps);
-      setLastUpdate(new Date().toLocaleTimeString());
-    });
-    
-    setSocket(newSocket);
-    
-    // Clean up on unmount
-    return () => {
-      if (newSocket) {
-        newSocket.disconnect();
-      }
-    };
-  }, []);
-
+const FlipdotDisplay = () => {
   return (
-    <div className="flex flex-col items-center p-4">
-      <h1 className="text-2xl font-bold mb-4">U2NET Human Segmentation</h1>
-      
-      {/* Connection status */}
-      <div className="mb-4 flex items-center">
-        <span className={`inline-block w-3 h-3 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-        <span>{isConnected ? 'Connected to segmentation server' : 'Disconnected'}</span>
-      </div>
-      
-      {/* FPS and last update time */}
-      <div className="mb-4 flex space-x-4">
-        {fps > 0 && (
-          <div className="text-sm text-gray-600">
-            FPS: <span className="font-bold">{fps}</span>
-          </div>
-        )}
-        {lastUpdate && (
-          <div className="text-sm text-gray-600">
-            Last updated: {lastUpdate}
-          </div>
-        )}
-      </div>
-      
-      {/* Flipdot display */}
-      <div className="border-2 border-gray-300 p-4 rounded">
-        <Flipdot bitMatrix={bitMatrix} />
-      </div>
-      
-      {/* Additional info */}
-      <div className="mt-4 text-sm text-gray-600">
-        <p>Segmentation running at {isConnected ? 'normal' : 'offline'} speed</p>
-        <p>Resolution: 36×24 pixels</p>
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Page Header */}
+        <h1 className="text-3xl font-bold mb-4 text-center">
+          U2NET Human Segmentation Flipdot Display
+        </h1>
+        <p className="text-lg mb-6 text-center text-gray-300">
+          This page displays a 36x24 flip-dot simulation driven by real-time human
+          segmentation data from a U2NET model running on a Flask server.
+        </p>
+
+        {/* Flipdot Component */}
+        <div className="flex justify-center">
+          <Flipdot />
+        </div>
+
+        {/* Additional Info */}
+        <div className="mt-6 text-sm text-gray-400 text-center">
+          <p>Resolution: 36×24 pixels</p>
+          <p>
+            Powered by Flask-SocketIO and U2NET model processing ESP32-CAM images
+          </p>
+        </div>
       </div>
     </div>
   );
-}
+};
 
-export default Test;
+export default FlipdotDisplay;
