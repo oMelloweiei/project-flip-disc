@@ -1,55 +1,27 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useState, useEffect } from "react";
+import {  Routes , Route } from "react-router-dom";
+import { lazy , Suspense } from "react";
 import "./App.css";
-import Nav from "./components/Nav";
-import Home from "./pages/home";
-import About from "./pages/about";
-import Contact from "./pages/contact";
-import Test from "./pages/test";
+import NavBar from "./components/Nav";
+const Home = lazy(() => import('./pages/home'));
+const About = lazy(() => import('./pages/about'));
+const Contact = lazy(() => import('./pages/contact'));
+const Test = lazy(() => import('./pages/test'));
 
-function App() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("https://localhost:8080/", {
-          method: "GET",
-          mode: "cors",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const jsonData = await response.json();
-        setData(jsonData);
-      } catch (err) {
-        setError(err.message);
-        console.error("Error fetching data:", err);
-      }
-    };
-
-    fetchData();
-  }, []);
+const App = () => {
 
   return (
-    <Router>
-      <div>
-        <Nav />
+        <>
+        <NavBar />
+        <Suspense fallback={<div className="container">Loading...</div>}>
         <Routes>
-          <Route path="/" element={<Home data={data} error={error} />} />
-          <Route path="/about" element={<About />} />
+          <Route path="/" element={<Test />} />
+          {/* <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/test" element={<Test />} />
+          <Route path="/test" element={<Test />} /> */}
           <Route path="*" element={<h1>404 Not Found</h1>} />
         </Routes>
-      </div>
-    </Router>
+        </Suspense>
+        </>
   );
 }
 

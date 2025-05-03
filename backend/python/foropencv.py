@@ -51,7 +51,7 @@ MEAN = torch.tensor([0.485, 0.456, 0.406])
 STD = torch.tensor([0.229, 0.224, 0.225])
 # Processing resolution and flip disc resolution
 resize_shape = (180, 120)  # Higher resolution for better detection
-flipdisc_resolution = (36, 24)  # Final output for flip disc display
+flipdisc_resolution = (112, 50)  # Final output for flip disc display
 
 transforms = T.Compose([
     T.ToTensor(),
@@ -237,7 +237,7 @@ def process_frames():
                 continue
             else:
                 break
-            
+        
         # Add frame to processing queue
         processor.enqueue(frame)
         

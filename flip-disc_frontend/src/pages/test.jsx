@@ -4,15 +4,15 @@ import Flipdot from "../components/Flipdot"; // Adjust the path based on your fi
 
 const FlipdotDisplay = () => {
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen text-white ">
+      <div className="max-w mx-auto">
         {/* Page Header */}
         <h1 className="text-3xl font-bold mb-4 text-center">
-          U2NET Human Segmentation Flipdot Display
+          FlipDisc Simulation
         </h1>
         <p className="text-lg mb-6 text-center text-gray-300">
-          This page displays a 36x24 flip-dot simulation driven by real-time human
-          segmentation data from a U2NET model running on a Flask server.
+          {/* This page displays a 36x24 flip-dot simulation driven by real-time human
+          segmentation data from a U2NET model running on a Flask server. */}
         </p>
 
         {/* Flipdot Component */}
