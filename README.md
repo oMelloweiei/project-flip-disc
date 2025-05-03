@@ -8,7 +8,7 @@ Sutthiphong Hongkham
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
 
 ```bash
-pip install opencv-python torch numpy pillow torchvision gdown
+pip install opencv-python torch numpy pillow torchvision gdown flask flask_cors flask_socketio
 ```
 
 
