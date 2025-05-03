@@ -227,18 +227,18 @@ def handle_disconnect():
 
 def process_frames():
     """Main processing loop that will emit data to connected clients"""
-    # Initialize processor with U2NET model
+    # Initialize processor with U2NET model (only used in active mode)
     processor = U2NETProcessor(model=u2net, device=DEVICE).start()
 
     # Load idle video
-    idle_video = cv2.VideoCapture('Green_Leaf_D.mp4')
+    idle_video = cv2.VideoCapture('idle.mp4')
     if not idle_video.isOpened():
         print("Error: Could not open idle video. Make sure the file exists.")
         # Create a black frame as fallback
         idle_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-    
+
     prev_frame_time = 0
-    
+
     # Initialize camera settings
     use_webcam = False
     cap = None
@@ -246,18 +246,18 @@ def process_frames():
     frame_counter = 0
     detect_every_n = 40
 
-    # 7 minutes in seconds
-    idle_timeout_seconds = 1 * 60  
-    
-    # Regular cooldown for short absence (5 seconds)
+    # Idle timeout (30 seconds for testing, was 7 minutes)
+    idle_timeout_seconds = 30
+
+    # Cooldown for short absence (5 seconds)
     active_cooldown_seconds = 5
-    
+
     # Confidence threshold for person detection (80%)
     person_confidence_threshold = 0.80
-    
+
     last_person_seen_time = time.time() - active_cooldown_seconds  # Start in idle mode
     highest_recent_confidence = 0.0  # Track highest recent confidence for display
-    
+
     try:
         # First try ESP32-CAM
         ret, frame = capture_from_esp32cam()
@@ -268,11 +268,11 @@ def process_frames():
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             use_webcam = True
-            
+
             if not cap.isOpened():
                 print("Error: Could not open webcam.")
                 return
-            
+
             # Test webcam
             ret, frame = cap.read()
             if not ret or frame is None:
@@ -281,11 +281,11 @@ def process_frames():
     except Exception as e:
         print(f"Error initializing camera: {e}")
         return
-    
+
     while True:
         frame_counter += 1
         frame = None
-        
+
         # Get frame from either ESP32-CAM or webcam
         if use_webcam:
             if cap is None or not cap.isOpened():
@@ -294,11 +294,10 @@ def process_frames():
                 if not cap.isOpened():
                     print("Failed to reinitialize webcam. Exiting...")
                     break
-                
             ret, frame = cap.read()
         else:
             ret, frame = capture_from_esp32cam()
-            
+
         if not ret or frame is None:
             print("Error: Failed to capture frame.")
             # If ESP32-CAM fails, try to switch to webcam
@@ -310,7 +309,7 @@ def process_frames():
                     continue
                 else:
                     print("Failed to open webcam as fallback")
-            
+
             # If all camera options fail, use the idle video frame
             ret_idle, idle_frame = idle_video.read()
             if ret_idle and idle_frame is not None:
@@ -325,30 +324,28 @@ def process_frames():
                     # Last resort - create a black frame
                     frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
-        # At this point, we should have a valid frame or a black frame as fallback
         # Flip frame horizontally
         if frame is not None:
             frame = cv2.flip(frame, 1)
-            
+
             # Detect person every N frames
             if frame_counter % detect_every_n == 0:
                 try:
                     # Get person detection with confidence check
                     person_present = detect_person(frame, person_confidence_threshold)
-                    
+
                     # Get the raw results to extract confidence for display
                     raw_results = yolo_model(frame)[0]
                     highest_confidence = 0.0
-                    
+
                     for r in raw_results.boxes:
                         cls_id = int(r.cls.item())
                         confidence = float(r.conf.item())
-                        
                         if cls_id == 0:  # Person class
                             highest_confidence = max(highest_confidence, confidence)
-                    
+
                     highest_recent_confidence = highest_confidence
-                    
+
                     if person_present:
                         last_person_seen_time = time.time()
                 except Exception as e:
@@ -358,59 +355,84 @@ def process_frames():
 
             current_time = time.time()
             time_since_person = current_time - last_person_seen_time
-            
+
+            # Initialize output variables
+            foreground = frame  # Default to input frame
+            full_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)  # Default empty mask
+            flipdisc_mask_binary = np.zeros(flipdisc_resolution[::-1], dtype=np.uint8)  # Default empty flip disc mask
+            flipdisc_mask_display = cv2.resize(flipdisc_mask_binary, (flipdisc_resolution[0]*10, flipdisc_resolution[1]*10),
+                                              interpolation=cv2.INTER_NEAREST)
 
             if time_since_person >= idle_timeout_seconds:
-                # No person detected for 1 minutes - use idle video
+                # Idle mode: Use idle video and create binary mask without segmentation
                 mode = "idle_video"
-                # Get a frame from the idle video
                 ret_idle, idle_frame = idle_video.read()
                 if not ret_idle or idle_frame is None:
-                    idle_video.set(cv2.CAP_PROP_POS_FRAMES, 0)  # loop idle video
+                    idle_video.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Loop idle video
                     ret_idle, idle_frame = idle_video.read()
                     if not ret_idle or idle_frame is None:
-                        idle_frame = frame  # fallback to camera frame if video fails
-                processor.enqueue(idle_frame)
+                        idle_frame = np.zeros((480, 640, 3), dtype=np.uint8)  # Fallback to black frame
 
+                # Create binary mask from idle frame (simple thresholding)
+                gray_idle = cv2.cvtColor(idle_frame, cv2.COLOR_BGR2GRAY)
+                _, binary_mask = cv2.threshold(gray_idle, 127, 255, cv2.THRESH_BINARY)
+                
+                # Resize to flip disc resolution
+                flipdisc_mask_binary = cv2.resize(binary_mask, flipdisc_resolution, interpolation=cv2.INTER_NEAREST)
+                _, flipdisc_mask_binary = cv2.threshold(flipdisc_mask_binary, 127, 255, cv2.THRESH_BINARY)
+                
+                # Create display version
+                flipdisc_mask_display = cv2.resize(flipdisc_mask_binary, (flipdisc_resolution[0]*10, flipdisc_resolution[1]*10),
+                                                  interpolation=cv2.INTER_NEAREST)
+                
+                # Use idle frame as foreground for visualization
+                foreground = idle_frame
+                full_mask = cv2.resize(binary_mask, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+                
+                result_available = True
             else:
-                # Person not seen recently but less than 7 minutes - idle mode with camera
+                # Active mode: Use U2NET segmentation
                 mode = "active"
                 processor.enqueue(frame)
-            
-            # Get processed result
-            result_available, result = processor.read()
-            
-            if result_available:
-                foreground, full_mask, flipdisc_mask_binary, flipdisc_display = result
                 
+                # Get processed result
+                result_available, result = processor.read()
+                
+                if result_available:
+                    foreground, full_mask, flipdisc_mask_binary, flipdisc_mask_display = result
+                else:
+                    # If no result yet, use defaults and skip processing
+                    result_available = False
+
+            if result_available:
                 # Calculate FPS
                 new_frame_time = time.time()
                 fps = 1/(new_frame_time-prev_frame_time) if prev_frame_time > 0 else 30
                 prev_frame_time = new_frame_time
-                
+
                 # Display mode on output
-                mode_color = (0, 255, 0) if mode == "active" else (0, 0, 255) if mode == "idle_video" else (255, 0, 0)
+                mode_color = (0, 255, 0) if mode == "active" else (0, 0, 255)
                 cv2.putText(foreground, f"Mode: {mode}", (10, 70),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, mode_color, 2)
-                
+
                 # Display confidence level
                 confidence_color = (0, 255, 0) if highest_recent_confidence >= person_confidence_threshold else (0, 0, 255)
                 cv2.putText(foreground, f"Confidence: {highest_recent_confidence:.2f}", (10, 110),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, confidence_color, 2)
-                
+
                 # Display time since last person detected
                 minutes = int(time_since_person // 60)
                 seconds = int(time_since_person % 60)
                 cv2.putText(foreground, f"Time since person: {minutes}m {seconds}s", (10, 150),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                
+
                 # Display flip disc preview
                 try:
-                    cv2.imshow('Flip Disc Preview', flipdisc_display)
+                    cv2.imshow('Flip Disc Preview', flipdisc_mask_display)
                     cv2.imshow('Debug View', foreground)
                 except Exception as e:
                     print(f"Error displaying preview: {e}")
-                
+
                 # Export data for flip disc display
                 try:
                     flipdisc_data = export_flipdisc_data(flipdisc_mask_binary)
@@ -418,11 +440,11 @@ def process_frames():
                     # send_to_esp32(flipdisc_data)
                 except Exception as e:
                     print(f"Error exporting flip disc data: {e}")
-                
+
                 # Convert to matrix format for React
                 try:
                     matrix = convert_mask_to_matrix(flipdisc_mask_binary)
-                    
+
                     # Emit data to connected clients via SocketIO
                     data = {
                         "matrix": matrix,
@@ -438,10 +460,10 @@ def process_frames():
         else:
             print("Warning: Null frame encountered")
             time.sleep(0.1)  # Small delay to prevent tight loop
-            
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-    
+
     # Cleanup
     processor.stop()
     if use_webcam and cap is not None:
