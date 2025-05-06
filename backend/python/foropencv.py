@@ -39,7 +39,7 @@ ESP32_FLIPDISC_PORT = 81
 # Processing resolution and flip disc resolution
 INPUT_RESOLUTION = (320, 240)  # Reduced from 640x480 for faster processing
 PROCESS_RESOLUTION = (160, 120)  # Reduced for faster U2NET processing
-FLIPDISC_RESOLUTION = (112, 50)  # Final output resolution
+FLIPDISC_RESOLUTION = (160, 90)  # Final output resolution
 
 # Constants
 MEAN = torch.tensor([0.485, 0.456, 0.406])
