@@ -11,7 +11,7 @@ const App = () => {
 
   return (
         <>
-        <NavBar />
+        {/* <NavBar /> */}
         <Suspense fallback={<div className="container">Loading...</div>}>
         <Routes>
           <Route path="/" element={<Test />} />

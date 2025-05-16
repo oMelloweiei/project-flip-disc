@@ -9,7 +9,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
 
 ```bash
 cd backend\python
-pip install opencv-python torch numpy pillow torchvision gdown flask flask_cors flask_socketio
+pip install opencv-python torch numpy pillow torchvision gdown flask flask_cors flask_socketio ultralytics
 ```
 
 ```bash

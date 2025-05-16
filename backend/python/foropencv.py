@@ -18,16 +18,16 @@ from flask_cors import CORS
 # Create Flask app with SocketIO
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')  # Use threading mode for better performance
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')  
 
-# Device and model configuration - use mixed precision where available
+
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-USE_FP16 = torch.cuda.is_available()  # Use FP16 if on CUDA
+USE_FP16 = torch.cuda.is_available()
 print(f"Using device: {DEVICE}, FP16: {USE_FP16}")
 
 # Model paths
 U2NET_MODEL_HUMAN_PATH = "u2net_human_seg.pth"
-YOLO_MODEL_PATH = "yolo11n.pt"  # Using smallest YOLO model for speed
+YOLO_MODEL_PATH = "yolo12n.pt" 
 
 # ESP32 camera URL for image capture
 ESP32_CAM_URL = 'http://192.168.10.162/cam-hi.jpg'
@@ -46,7 +46,7 @@ MEAN = torch.tensor([0.485, 0.456, 0.406])
 STD = torch.tensor([0.229, 0.224, 0.225])
 DETECT_INTERVAL = 15  # Detect person every N frames (reduced from 40)
 PERSON_CONFIDENCE_THRESHOLD = 0.75  # Slightly reduced for better responsiveness
-IDLE_TIMEOUT_SECONDS = 30
+IDLE_TIMEOUT_SECONDS = 15
 ACTIVE_COOLDOWN_SECONDS = 5
 
 # Video playback settings
@@ -67,6 +67,10 @@ http_session = requests.Session()
 # Cache for idle video frames to avoid disk reads
 idle_frames_cache = []
 video_frame_count = 0  # Total frames in the video
+
+#CAMERA SPEC
+FOCAL_LENGTH_PIXELS = 1422.22
+REAL_PERSON_HEIGHT_M = 1.7  
 
 def load_models():
     """Load models with optimizations"""
@@ -209,30 +213,33 @@ class U2NETProcessor:
         self.stopped = True
 
 def detect_person(frame, confidence_threshold=0.75):
-    """Optimized person detection"""
-    # Skip detection for frames that are too dark
-    if frame.mean() < 20:  # Skip very dark frames
-        return False, 0.0
-        
-    # Resize frame for faster detection
+    if frame.mean() < 20:
+        return False, 0.0, []
     small_frame = cv2.resize(frame, (320, 240))
-    
-    # Run YOLO detection with optimizations
-    results = yolo_model(small_frame, verbose=False)[0]  # Turn off verbose
-    
-    # Check for person class (class 0 in COCO)
+    results = yolo_model(small_frame, verbose=False)[0]
     highest_confidence = 0.0
-    
-    for box in results.boxes:
-        cls_id = int(box.cls.item())
-        confidence = float(box.conf.item())
-        
-        if cls_id == 0:  # person
-            highest_confidence = max(highest_confidence, confidence)
-            if confidence >= confidence_threshold:
-                return True, highest_confidence
-    
-    return False, highest_confidence
+    person_boxes = []
+    if results.boxes is not None:
+        for box in results.boxes:
+            cls_id = int(box.cls.item())
+            confidence = float(box.conf.item())
+            if cls_id == 0 and confidence >= confidence_threshold:
+                highest_confidence = max(highest_confidence, confidence)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                # Scale bounding box back to INPUT_RESOLUTION
+                scale_x = INPUT_RESOLUTION[0] / 320
+                scale_y = INPUT_RESOLUTION[1] / 240
+                x1 = int(x1 * scale_x)
+                y1 = int(y1 * scale_y)
+                x2 = int(x2 * scale_x)
+                y2 = int(y2 * scale_y)
+                box_height = y2 - y1
+                if box_height > 0:
+                    distance_m = (REAL_PERSON_HEIGHT_M * FOCAL_LENGTH_PIXELS) / box_height
+                else:
+                    distance_m = float('inf')
+                person_boxes.append((x1, y1, x2, y2, box_height, distance_m))
+    return len(person_boxes) > 0, highest_confidence, person_boxes
 
 class IdleVideoPlayer:
     """A class to handle idle video playback that supports both memory caching and direct playback"""
@@ -380,56 +387,44 @@ def capture_from_esp32cam():
         return False, None
 
 def process_frames():
-    """Main processing loop with optimizations"""
     global video_frame_count
     
-    # Debug mode flag - makes windows always visible and shows more info
-    DEBUG_MODE = True  # Set to True to enable debug windows and logging
+    DEBUG_MODE = True
     
-    # Load models with optimizations
     u2net, yolo_model = load_models()
     
-    # Initialize the idle video player
     idle_video = IdleVideoPlayer(
         video_path=IDLE_VIDEO_PATH,
         input_resolution=INPUT_RESOLUTION,
         max_frames_in_memory=IDLE_VIDEO_MAX_FRAMES
     )
-    video_frame_count = idle_video.get_frame_count()
     
-    # Initialize processor with optimized U2NET model
+    video_frame_count = idle_video.get_frame_count()
     processor = U2NETProcessor(model=u2net, device=DEVICE).start()
     
-    # Frame buffer for smoother processing
     frame_buffer = FrameBuffer(max_size=3)
-    
-    # Initialize tracking variables
     prev_frame_time = 0
     frame_counter = 0
+    
     last_person_seen_time = time.time() - ACTIVE_COOLDOWN_SECONDS
     highest_recent_confidence = 0.0
-    mode = "idle_video"
     
-    # Initialize camera
+    mode = "idle_video"
+    blackout_mask = np.ones(INPUT_RESOLUTION[::-1], dtype=np.uint8) * 255
+    latest_person_boxes = []
     use_webcam = False
     cap = None
-    
     try:
-        # First try ESP32-CAM
         ret, frame = capture_from_esp32cam()
         if not ret or frame is None:
-            # Fallback to webcam
             print("Falling back to webcam")
             cap = cv2.VideoCapture(0)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, INPUT_RESOLUTION[0])
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, INPUT_RESOLUTION[1])
             use_webcam = True
-            
             if not cap.isOpened():
                 print("Error: Could not open webcam.")
                 return
-                
-            # Test webcam
             ret, frame = cap.read()
             if ret and frame is not None:
                 frame = cv2.resize(frame, INPUT_RESOLUTION)
@@ -439,16 +434,11 @@ def process_frames():
     except Exception as e:
         print(f"Error initializing camera: {e}")
         return
-    
-    # Socket emission timer to limit update frequency
     last_socket_emit_time = 0
-    SOCKET_UPDATE_INTERVAL = 0.05  # 20 FPS max socket updates
-    
+    SOCKET_UPDATE_INTERVAL = 0.05
     while True:
         frame_counter += 1
         frame = None
-        
-        # Get frame efficiently
         if use_webcam:
             if cap is None or not cap.isOpened():
                 print("Webcam not available. Trying to reinitialize...")
@@ -461,20 +451,14 @@ def process_frames():
                         print("Failed to reinitialize webcam")
                 except Exception:
                     pass
-                
             if cap and cap.isOpened():
                 ret, frame = cap.read()
                 if ret and frame is not None:
                     frame = cv2.resize(frame, INPUT_RESOLUTION)
         else:
             ret, frame = capture_from_esp32cam()
-            
-        # Handle frame acquisition failure
         if not ret or frame is None:
-            # Use idle video frame 
             frame = idle_video.get_next_frame()
-                
-            # If ESP32-CAM fails continuously, try switching to webcam
             if not use_webcam and frame_counter % 100 == 0:
                 try:
                     cap = cv2.VideoCapture(0)
@@ -483,147 +467,125 @@ def process_frames():
                         print("Switched to webcam after ESP32-CAM failures")
                 except Exception:
                     pass
-        
-        # Flip frame horizontally if needed
         if frame is not None:
             frame = cv2.flip(frame, 1)
-            frame_buffer.add_frame(frame.copy())  # Store in buffer
-            
-            # Detect person at reduced frequency
+            frame_buffer.add_frame(frame.copy())
+            masked_frame = frame.copy()
+            masked_frame = cv2.bitwise_and(masked_frame, masked_frame, mask=blackout_mask)
             if frame_counter % DETECT_INTERVAL == 0:
-                try:
-                    # Detect person with confidence
-                    person_present, confidence = detect_person(frame, PERSON_CONFIDENCE_THRESHOLD)
-                    highest_recent_confidence = confidence
+                try:         
+                    person_present, highest_recent_confidence, person_boxes = detect_person(frame, PERSON_CONFIDENCE_THRESHOLD)
+                    latest_person_boxes = person_boxes
+
+                    person_in_range = False
+                    min_distance = float('inf')
+                    for (x1, y1, x2, y2, h, distance) in person_boxes:
+                        min_distance = min(min_distance, distance)
+                        if distance <= 15.0:
+                            person_in_range = True
+
+                    blackout_mask.fill(255)
                     
                     if person_present:
+                        if not person_in_range:  # No one is in range
+                            blackout_mask.fill(0)
+                            person_in_range = False
+                        else:  # At least one person is in range
+                            for (x1, y1, x2, y2, h, distance) in person_boxes:
+                                if distance > 15.0:
+                                    cv2.rectangle(blackout_mask, (x1, y1), (x2, y2), 0, -1)
+
+                    if person_present and person_in_range:
                         last_person_seen_time = time.time()
                         if mode != "active":
                             print("Person detected - switching to active mode")
                             mode = "active"
                 except Exception as e:
                     print(f"Error in person detection: {e}")
-            
-            # Determine current mode based on time since last person seen
             current_time = time.time()
             time_since_person = current_time - last_person_seen_time
-            
             if time_since_person >= IDLE_TIMEOUT_SECONDS and mode != "idle_video":
                 print("Timeout reached - switching to idle mode")
                 mode = "idle_video"
-            
-            # Initialize output variables with defaults
             foreground = frame
             full_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
             flipdisc_mask_binary = np.zeros(FLIPDISC_RESOLUTION[::-1], dtype=np.uint8)
             flipdisc_mask_display = np.zeros((FLIPDISC_RESOLUTION[1]*5, FLIPDISC_RESOLUTION[0]*5), dtype=np.uint8)
             result_available = False
-            
             if mode == "idle_video":
-                # Idle mode: Use video frames
-                # Get the next frame from the idle video
                 idle_frame = idle_video.get_next_frame()
-                    
-                # Create binary mask from idle frame (optimized)
                 gray_idle = cv2.cvtColor(idle_frame, cv2.COLOR_BGR2GRAY)
                 _, binary_mask = cv2.threshold(gray_idle, 75, 255, cv2.THRESH_BINARY)
-                
-                # Resize to flip disc resolution (optimized)
                 flipdisc_mask_binary = cv2.resize(binary_mask, FLIPDISC_RESOLUTION, 
                                                interpolation=cv2.INTER_NEAREST)
                 _, flipdisc_mask_binary = cv2.threshold(flipdisc_mask_binary, 75, 255, cv2.THRESH_BINARY)
-                
-                # Create display version
                 flipdisc_mask_display = cv2.resize(flipdisc_mask_binary, 
                                                (FLIPDISC_RESOLUTION[0]*5, FLIPDISC_RESOLUTION[1]*5),
                                                interpolation=cv2.INTER_NEAREST)
-                
-                # Use idle frame as foreground for visualization
-                foreground = idle_frame.copy()  # Create a copy to avoid modifying the cached frame
-                full_mask = binary_mask
-                
-                # Add idle indicator for debugging
+                foreground = idle_frame.copy()
                 if DEBUG_MODE:
-                    cv2.rectangle(foreground, (0, 0), (20, 20), (0, 0, 255), -1)  # Red rectangle indicates idle mode
-                
+                    cv2.rectangle(foreground, (0, 0), (20, 20), (0, 0, 255), -1)
                 result_available = True
             else:
-                # Active mode: Use U2NET segmentation
-                processor.enqueue(frame)
-                
-                # Get processed result
+                processor.enqueue(masked_frame)
                 result_available, result = processor.read()
-                
                 if result_available:
                     foreground, full_mask, flipdisc_mask_binary, flipdisc_mask_display = result
-            
-            # Process and send results at controlled rate
             if result_available and (current_time - last_socket_emit_time) >= SOCKET_UPDATE_INTERVAL:
                 last_socket_emit_time = current_time
-                
-                # Calculate FPS
                 new_frame_time = time.time()
                 fps = 1/(new_frame_time-prev_frame_time) if prev_frame_time > 0 else 30
                 prev_frame_time = new_frame_time
-                
-                # Debug visualization (always display when DEBUG_MODE is enabled)
                 if DEBUG_MODE or cv2.getWindowProperty('Debug View', cv2.WND_PROP_VISIBLE) > 0:
-                    # Create debug window if it doesn't exist yet
                     if not cv2.getWindowProperty('Debug View', cv2.WND_PROP_VISIBLE) > 0:
                         cv2.namedWindow('Debug View', cv2.WINDOW_NORMAL)
-                        cv2.namedWindow('Flip Disc Preview', cv2.WINDOW_NORMAL)
-                    
-                    # Display mode on output
+                        cv2.namedWindow('Flip Disc Preview', cv2.WND_PROP_VISIBLE)
                     mode_color = (0, 255, 0) if mode == "active" else (0, 0, 255)
                     cv2.putText(foreground, f"Mode: {mode}", (10, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, mode_color, 2)
-                    
-                    # Display confidence level
                     confidence_color = (0, 255, 0) if highest_recent_confidence >= PERSON_CONFIDENCE_THRESHOLD else (0, 0, 255)
                     cv2.putText(foreground, f"Conf: {highest_recent_confidence:.2f}", (10, 60),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, confidence_color, 2)
                     
-                    # Display time since last person
                     minutes = int(time_since_person // 60)
                     seconds = int(time_since_person % 60)
+                    
                     cv2.putText(foreground, f"Time: {minutes}m {seconds}s", (10, 90),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                    
-                    # Display FPS
                     cv2.putText(foreground, f"FPS: {int(fps)}", (10, 120),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
                     
-                    # Display idle frame index in idle mode
+                    for (x1, y1, x2, y2, h, distance) in latest_person_boxes:
+                        if distance != float('inf'):
+                            # Draw bounding box with color based on distance
+                            color = (0, 0, 255) if distance > 2.0 else (0, 255, 0)
+                            cv2.rectangle(foreground, (x1, y1), (x2, y2), color, 1)
+                            
+                            # Display distance above bounding box (in meters)
+                            distance_text = f"{distance:.1f}m"
+                            cv2.putText(foreground, distance_text, (x1, y1 - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+                    
                     if mode == "idle_video":
                         current_frame = idle_video.get_current_frame_index()
                         total_frames = idle_video.get_frame_count()
                         cv2.putText(foreground, f"Idle frame: {current_frame}/{total_frames}", (10, 150),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-                    
-                    # Display preview windows
+                        
                     cv2.imshow('Flip Disc Preview', flipdisc_mask_display)
                     cv2.imshow('Debug View', foreground)
-                
-                # Export data for flip disc display
                 try:
                     flipdisc_data = export_flipdisc_data(flipdisc_mask_binary)
-                    # Uncomment to send to actual hardware:
                     # send_to_esp32(flipdisc_data)
                 except Exception as e:
                     print(f"Error exporting flip disc data: {e}")
-                
-                # Convert to matrix and emit to connected clients
                 try:
                     matrix = convert_mask_to_matrix(flipdisc_mask_binary)
-                    
-                    # Send to clients with minimal data
                     data = {
                         "matrix": matrix,
                         "mode": mode,
                         "fps": int(fps)
                     }
-                    
-                    # Add more detailed metrics only when clients are connected
                     if len(socketio.server.environ) > 0:
                         data.update({
                             "timestamp": current_time,
@@ -632,19 +594,14 @@ def process_frames():
                             "video_frame": idle_video.get_current_frame_index() if mode == "idle_video" else 0,
                             "video_total_frames": video_frame_count
                         })
-                        
                     socketio.emit('flipdisc_update', data)
                 except Exception as e:
                     print(f"Error sending data to clients: {e}")
         else:
-            time.sleep(0.01)  # Small delay to prevent tight loop
-            
-        # Check for exit
+            time.sleep(0.01)
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-    
-    # Cleanup
     processor.stop()
     idle_video.release()
     if use_webcam and cap is not None:
