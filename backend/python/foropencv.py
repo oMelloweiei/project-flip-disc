@@ -410,6 +410,7 @@ def process_frames():
     highest_recent_confidence = 0.0
     
     mode = "idle_video"
+    blackout = True  # Start with blackout until a person is detected
     blackout_mask = np.ones(INPUT_RESOLUTION[::-1], dtype=np.uint8) * 255
     latest_person_boxes = []
     use_webcam = False
@@ -484,22 +485,21 @@ def process_frames():
                         if distance <= 15.0:
                             person_in_range = True
 
-                    blackout_mask.fill(255)
-                    
-                    if person_present:
-                        if not person_in_range:  # No one is in range
-                            blackout_mask.fill(0)
-                            person_in_range = False
-                        else:  # At least one person is in range
-                            for (x1, y1, x2, y2, h, distance) in person_boxes:
-                                if distance > 15.0:
-                                    cv2.rectangle(blackout_mask, (x1, y1), (x2, y2), 0, -1)
+                    blackout = not (person_present and person_in_range)  # Blackout if no person or out of range
+                    blackout_mask.fill(255 if not blackout else 0)  # Clear mask if person in range, else blackout
+
+                    if person_present and person_in_range:
+                        for (x1, y1, x2, y2, h, distance) in person_boxes:
+                            if distance > 15.0:
+                                cv2.rectangle(blackout_mask, (x1, y1), (x2, y2), 0, -1)
 
                     if person_present and person_in_range:
                         last_person_seen_time = time.time()
                         if mode != "active":
                             print("Person detected - switching to active mode")
                             mode = "active"
+                    else:
+                        print("No person in range - enabling blackout")
                 except Exception as e:
                     print(f"Error in person detection: {e}")
             current_time = time.time()
@@ -507,12 +507,14 @@ def process_frames():
             if time_since_person >= IDLE_TIMEOUT_SECONDS and mode != "idle_video":
                 print("Timeout reached - switching to idle mode")
                 mode = "idle_video"
+                blackout = True  # Blackout in idle mode
             foreground = frame
             full_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
             flipdisc_mask_binary = np.zeros(FLIPDISC_RESOLUTION[::-1], dtype=np.uint8)
             flipdisc_mask_display = np.zeros((FLIPDISC_RESOLUTION[1]*5, FLIPDISC_RESOLUTION[0]*5), dtype=np.uint8)
             result_available = False
             if mode == "idle_video":
+                blackout = True  # Always blackout in idle mode
                 idle_frame = idle_video.get_next_frame()
                 gray_idle = cv2.cvtColor(idle_frame, cv2.COLOR_BGR2GRAY)
                 _, binary_mask = cv2.threshold(gray_idle, 75, 255, cv2.THRESH_BINARY)
@@ -557,11 +559,8 @@ def process_frames():
                     
                     for (x1, y1, x2, y2, h, distance) in latest_person_boxes:
                         if distance != float('inf'):
-                            # Draw bounding box with color based on distance
                             color = (0, 0, 255) if distance > 2.0 else (0, 255, 0)
                             cv2.rectangle(foreground, (x1, y1), (x2, y2), color, 1)
-                            
-                            # Display distance above bounding box (in meters)
                             distance_text = f"{distance:.1f}m"
                             cv2.putText(foreground, distance_text, (x1, y1 - 10),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
@@ -584,6 +583,7 @@ def process_frames():
                     data = {
                         "matrix": matrix,
                         "mode": mode,
+                        "blackout": blackout,  # Add blackout flag
                         "fps": int(fps)
                     }
                     if len(socketio.server.environ) > 0:
