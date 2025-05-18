@@ -1,10 +1,10 @@
 // src/pages/FlipdotDisplay.js
 import React from "react";
-import Flipdot from "../components/Flipdot"; // Adjust the path based on your file structure
+import FlipdotWebGL from "../components/Flipdot"; // Adjust the path based on your file structure
 
 const FlipdotDisplay = () => {
   return (
-          <Flipdot />
+          <FlipdotWebGL rows={72} cols={128} />
   );
 };
 

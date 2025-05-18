@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import createREGL from "regl";
 
-const rows = 90;
-const cols = 160;
-const ANIMATION_DURATION = 300; // Animation duration in ms
+const rows = 45;
+const cols = 80;
+const ANIMATION_DURATION = 100; // Animation duration in ms
 
 // Leaf-inspired color palette
 const leafColors = [
@@ -24,7 +24,9 @@ const FlipdotWebGL = () => {
   const canvasRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const matrixRef = useRef(
-    Array.from({ length: rows }, () => Array(cols).fill(0))
+    Array.from({ length: rows }, () =>
+      Array.from({ length: cols }, () => (Math.random() > 0.7 ? 1 : 0))
+    )
   );
   const colorRef = useRef(
     Array.from({ length: rows }, (_, r) =>
@@ -59,15 +61,20 @@ const FlipdotWebGL = () => {
     socketRef.current.on("disconnect", () => {
       console.log("Disconnected from server");
       setIsConnected(false);
-      matrixRef.current = Array.from({ length: rows }, () => Array(cols).fill(0));
+      matrixRef.current = Array.from({ length: rows }, () =>
+        Array.from({ length: cols }, () => (Math.random() > 0.7 ? 1 : 0))
+      );
       lastUpdateTimeRef.current = Array.from({ length: rows }, () => Array(cols).fill(0));
     });
 
     socketRef.current.on("flipdisc_update", (data) => {
       if (data && data.matrix) {
+        const receivedRows = data.matrix.length;
+        const receivedCols = receivedRows > 0 ? data.matrix[0].length : 0;
+        console.log(`Received matrix: ${receivedRows}x${receivedCols}`);
         const now = performance.now();
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < Math.min(rows, receivedRows); r++) {
+          for (let c = 0; c < Math.min(cols, receivedCols); c++) {
             if (data.matrix[r][c] !== matrixRef.current[r][c]) {
               lastUpdateTimeRef.current[r][c] = now;
               if (data.matrix[r][c] === 1) {
@@ -82,7 +89,16 @@ const FlipdotWebGL = () => {
             }
           }
         }
-        matrixRef.current = data.matrix;
+        const newMatrix = Array.from({ length: rows }, (_, r) =>
+          Array.from({ length: cols }, (_, c) =>
+            r < receivedRows && c < receivedCols
+              ? data.matrix[r][c]
+              : matrixRef.current[r][c]
+          )
+        );
+        matrixRef.current = newMatrix;
+      } else {
+        console.warn("Invalid flipdisc_update data:", data);
       }
     });
 
@@ -98,25 +114,28 @@ const FlipdotWebGL = () => {
     const resizeCanvas = () => {
       if (canvasRef.current && reglRef.current) {
         const canvas = canvasRef.current;
-        // Set canvas to full window size
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        // Update WebGL viewport to match canvas size
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(window.innerWidth * devicePixelRatio);
+        canvas.height = Math.floor(window.innerHeight * devicePixelRatio);
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
         reglRef.current._gl.viewport(0, 0, canvas.width, canvas.height);
+        console.log(`Canvas resized: ${canvas.width}x${canvas.height}`);
       }
     };
 
-    // Initial resize
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    // Set up global styles to ensure full-screen
     document.body.style.margin = "0";
     document.body.style.padding = "0";
-    document.body.style.overflow = "hidden"; // Prevent scrolling
+    document.body.style.overflow = "hidden";
 
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.error("Canvas not found");
+      return;
+    }
 
     try {
       reglRef.current = createREGL({ canvas });
@@ -137,7 +156,8 @@ const FlipdotWebGL = () => {
             vAnimationProgress = animationProgress;
             vDotColor = dotColor;
             gl_Position = vec4(position, 0, 1);
-            gl_PointSize = min(${window.innerWidth / cols}, ${window.innerHeight / rows}) * 0.8;
+            float pointSize = min(float(${window.innerWidth}) / ${cols}.0, float(${window.innerHeight}) / ${rows}.0) * 1.2;
+            gl_PointSize = max(pointSize, 4.0);
           }
         `,
         frag: `
@@ -176,21 +196,27 @@ const FlipdotWebGL = () => {
           }
         `,
         attributes: {
-          position: () =>
-            Array.from({ length: rows * cols }, (_, i) => {
+          position: () => {
+            const positions = Array.from({ length: rows * cols }, (_, i) => {
               const row = Math.floor(i / cols);
               const col = i % cols;
               return [
-                (col / (cols - 1)) * 2 - 1, // Scale to [-1, 1]
-                1 - (row / (rows - 1)) * 2, // Scale to [-1, 1]
+                (col / (cols - 1)) * 2 - 1,
+                1 - (row / (rows - 1)) * 2,
               ];
-            }),
-          flip: () =>
-            Array.from({ length: rows * cols }, (_, i) => {
+            });
+            console.log(`Position array length: ${positions.length}`);
+            return positions;
+          },
+          flip: () => {
+            const flips = Array.from({ length: rows * cols }, (_, i) => {
               const row = Math.floor(i / cols);
               const col = i % cols;
               return matrixRef.current[row][col];
-            }),
+            });
+            console.log(`Flip array non-zero count: ${flips.filter(x => x !== 0).length}`);
+            return flips;
+          },
           animationProgress: () =>
             Array.from({ length: rows * cols }, (_, i) => {
               const row = Math.floor(i / cols);
